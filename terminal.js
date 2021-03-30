@@ -66,25 +66,22 @@ class FileSystem {
         return exploreDir(dir, {});
     }
 
-    /**
-     * @TODO: handle mkdir foo/bar
-     */
     createDir(path, root) {
-        if (!root.children[path]) {
-            root.children[path] = new File(FileTypes.Directory, path);
-            root.children[path].parent = root;
-        } else {
-            console.log('Directory already exists');
-        }
+        this.createFile(FileTypes.Directory, path, root);
     }
 
-    /**
-     * @TODO: handle touch foo/bar.txt
-     */
-    createFile(path, root) {
-        if (!root.children[path]) {
-            root.children[path] = new File(FileTypes.RegularFile, path);
-            root.children[path].parent = root;
+    createRegularFile(path, root) {
+        this.createFile(FileTypes.RegularFile, path, root);
+    }
+
+    createFile(fileType, path, root) {
+        const fileName = pathHelper.basename(path);
+        const parentDirPath = pathHelper.dirname(path);
+        const parentDir = this.getFile(parentDirPath, root);
+
+        if (!parentDir.children[fileName]) {
+            parentDir.children[fileName] = new File(fileType, fileName);
+            parentDir.children[fileName].parent = parentDir;
         } else {
             console.log('File already exists');
         }
@@ -188,7 +185,7 @@ class Terminal {
 
         const root = this._getRootByPath(dirName);
         try {
-            this.fileSystem.createFile(dirName, root);
+            this.fileSystem.createRegularFile(dirName, root);
         } catch(error) {
             console.log(error.message);
         }
