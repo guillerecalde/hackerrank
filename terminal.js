@@ -1,9 +1,5 @@
 const pathHelper = require('path');
 
-process.stdin.resume();
-process.stdin.setEncoding("ascii");
-var input = "";
-
 const FileNameMaxLength = 100;
 
 const FileTypes = {
@@ -46,30 +42,42 @@ class FileSystem {
         return fullPath;
     }
 
-    readDir(path, root) {
+    readDir(path, root, options = {}) {
+        const exploreDir = (directory, result) => {
+            const path = this.getFileFullPath(directory);
+            result[path] = Object.keys(directory.children);
+
+            // If the "recursive" option is true, we have to
+            // explore the current directory's children.
+            if (options.recursive) {
+                Object.values(directory.children)
+                    .filter(child => child.type === FileTypes.Directory)
+                    .forEach(subDirectory => exploreDir(subDirectory, result));
+            }
+
+            return result;
+        };
+
         const dir = this.getFile(path, root);
-        return Object.keys(dir.children);
+        return exploreDir(dir, {});
     }
 
-    /**
-     * @TODO: handle mkdir foo/bar
-     */
     createDir(path, root) {
-        if (!root.children[path]) {
-            root.children[path] = new File(FileTypes.Directory, path);
-            root.children[path].parent = root;
-        } else {
-            console.log('Directory already exists');
-        }
+        this.createFile(FileTypes.Directory, path, root);
     }
 
-    /**
-     * @TODO: handle touch foo/bar.txt
-     */
-    createFile(path, root) {
-        if (!root.children[path]) {
-            root.children[path] = new File(FileTypes.RegularFile, path);
-            root.children[path].parent = root;
+    createRegularFile(path, root) {
+        this.createFile(FileTypes.RegularFile, path, root);
+    }
+
+    createFile(fileType, path, root) {
+        const fileName = pathHelper.basename(path);
+        const parentDirPath = pathHelper.dirname(path);
+        const parentDir = this.getFile(parentDirPath, root);
+
+        if (!parentDir.children[fileName]) {
+            parentDir.children[fileName] = new File(fileType, fileName);
+            parentDir.children[fileName].parent = parentDir;
         } else {
             console.log('File already exists');
         }
@@ -121,16 +129,23 @@ class Terminal {
         console.log(currrentPath);
     }
 
-    ls(path = FileSystemAliases.CurrentDirectory) {
+    ls(param = FileSystemAliases.CurrentDirectory) {
+        const options = { recursive: param === '-r' };
+        const path = options.recursive ? FileSystemAliases.CurrentDirectory : param;
         const root = this._getRootByPath(path);
-        let files = [];
+
+        let list = {};
         try {
-            files = this.fileSystem.readDir(path, root);
+            list = this.fileSystem.readDir(path, root, options);
         } catch(error) {
             console.log(error.message);
         }
 
-        files.forEach(file => console.log(file));
+        Object.keys(list)
+            .forEach(filePath => {
+                if (options.recursive) console.log(filePath);
+                list[filePath].forEach(file => console.log(file));
+            });
     }
 
     mkdir(dirName) {
@@ -166,7 +181,7 @@ class Terminal {
 
         const root = this._getRootByPath(dirName);
         try {
-            this.fileSystem.createFile(dirName, root);
+            this.fileSystem.createRegularFile(dirName, root);
         } catch(error) {
             console.log(error.message);
         }
@@ -174,22 +189,18 @@ class Terminal {
 
     execute(commandInput) {
         const [commandName, parameter] = commandInput.split(' ');
-        console.log(commandInput);
+
         switch(commandName) {
             case 'pwd':
                 return this.pwd();
             case 'ls':
                 return this.ls(parameter);
-                break;
             case 'mkdir':
                 return this.mkdir(parameter);
-                break;
             case 'cd':
                 return this.cd(parameter);
-                break;
             case 'touch':
                 return this.touch(parameter);
-                break;
             case 'quit':
                 process.exit(0);
             default:
@@ -202,15 +213,7 @@ class Terminal {
     }
 }
 
-process.stdin.on("data", function (chunk) {
-    input += chunk;
-});
-process.stdin.on("end", function () {
-    const fileSystem = new FileSystem();
-    const terminal = new Terminal(fileSystem);
-
-    const commands = input.split('\n');
-    commands.forEach(command => {
-        terminal.execute(command);
-    });
-});
+module.exports = {
+    FileSystem,
+    Terminal,
+};
