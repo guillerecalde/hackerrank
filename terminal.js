@@ -1,9 +1,5 @@
 const pathHelper = require('path');
 
-process.stdin.resume();
-process.stdin.setEncoding("ascii");
-var input = "";
-
 const FileNameMaxLength = 100;
 
 const FileTypes = {
@@ -217,15 +213,7 @@ class Terminal {
     }
 }
 
-process.stdin.on("data", function (chunk) {
-    input += chunk;
-});
-process.stdin.on("end", function () {
-    const fileSystem = new FileSystem();
-    const terminal = new Terminal(fileSystem);
-
-    const commands = input.split('\n');
-    commands.forEach(command => {
-        terminal.execute(command);
-    });
-});
+module.exports = {
+    FileSystem,
+    Terminal,
+};
